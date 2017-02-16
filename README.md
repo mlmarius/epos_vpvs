@@ -26,7 +26,7 @@ mv config.ini.sample config.ini
 
 Dont't forget to edit config.ini and replace your own config details
 
-run the app
+Now run the app
 ```
 python vpvs.py
 ```
