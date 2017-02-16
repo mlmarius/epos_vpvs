@@ -6,7 +6,7 @@ microservice enabling retrieval of VP/VS data
 
 Clone the github repo
 ```
-https://github.com/mlmarius/epos_vpvs.git
+git clone https://github.com/mlmarius/epos_vpvs.git
 ```
 
 then cd into the installation dir
