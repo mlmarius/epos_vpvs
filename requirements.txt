@@ -1,0 +1,10 @@
+appdirs==1.4.0
+backports-abc==0.5
+certifi==2017.1.23
+packaging==16.8
+pyparsing==2.1.10
+singledispatch==3.4.0.3
+six==1.10.0
+tornado==4.4.2
+mysqlclient==1.3.7
+-e git://github.com/mlmarius/requestutils.git@c1be246482345cda9661fbbacdb6ec62a66b5400#egg=requestutils                                    

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>VP/VS Service</h1>
+
+
+
+	<div class="row">
+
+		<!-- Nav tabs -->
+		<ul class="nav nav-tabs" role="tablist">
+			<li role="presentation" class="active"><a href="#home" aria-controls="home" role="tab" data-toggle="tab">Home</a></li>
+			<li role="presentation"><a href="#examples" aria-controls="examples" role="tab" data-toggle="tab">Example queries</a></li>
+		</ul>
+
+		<!-- Tab panes -->
+		<div class="tab-content">
+			<div role="tabpanel" class="tab-pane active" id="home">
+			
+				{% for param in manager.rq.parameters %}
+				<div class="col-xs-12" style="margin-bottom: 2em;">
+					<h5><strong>{{ param.varname }}</strong>/ {{ param.name }}</h5>
+					
+					<p>{{ param.description }}</p>
+					
+					{% if param.unit %}
+					<p>Measurement unit: {{ param.unit }}</p>
+					{% end %}
+
+					<h5>Validation constraints</h5>
+					{% for validator in param.validators %}
+						{{ validator.description }}
+					{% end %}
+				</div>
+				{% end %}
+
+				<h5>Global parameter constraints:</h5>
+				{% for validator in manager.rq.post_validators %}
+					<p>{{ validator.description }}</p>
+				{% end %}
+
+			</div>
+			<div role="tabpanel" class="tab-pane" id="examples">
+				<div class="row">
+					<div class="col-xs-12">
+						{% for query in queries %}
+						<div class="row">
+							<div class="col-xs-12">
+								<p><a href="{{ query }}">{{ query }}</a></p>
+							</div>
+						</div>
+						{% end %}
+					</div>
+				</div>
+			</div>
+		</div>
+
+	</div>
+
+{% end %}
