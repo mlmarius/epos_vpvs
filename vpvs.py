@@ -25,52 +25,71 @@ class MainHandler(handler.APIBaseHandler):
 
             db = _mysql.connect(self.config.get('db','host'),
                                 self.config.get('db','user'),
-                                self.config.get('db','password'),
+                                self.config.get('db','pass'),
                                 self.config.get('db','db'))
 
             query = '''
-                    select distinct
-                    ( 1 + ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/100000) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/100000)) / (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/100000)) as vpvs,
-                    ( ( (pow(f.wei,2)*0.02 + pow(g.wei,2)*0.02) / ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/100000) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/100000)) ) + ((pow(f.wei,2)*0.02)/(TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/100000))) as err,
-                    c.origintime,h.lat,h.lon,h.elev,h.stacode,h.loco,f.type,f.pick,f.wei,g.type,g.pick,g.wei,c.id,c.lat,c.lon,c.elev
-                    from
-                    (select c.eqkid as ID,count(*) as counterPS from phases f, phases g, eqlocations c, stazioni h where f.eqkid=g.eqkid and g.eqkid=c.eqkid and f.type='P' and g.type='S' and f.wei<=4 and g.wei<=4 and f.stacode=g.stacode and f.stacode=h.stacode and g.stacode=h.stacode and f.loco=h.loco and g.loco=h.loco and f.loco=g.loco and (h.lat between {minlat} and {maxlat}) and (h.lon between {minlon} and {maxlon}) and (h.elev between 0 and 15) and c.model=1 and c.lcode=2 and c.method=2 and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkid) as tblPS,
-                    (select f.eqkid as ID,count(*) as counterP from phases f, eqlocations c where f.eqkid=c.eqkid and f.type='P' and f.wei<=4 and c.model=1 and c.lcode=2 and c.method=2 and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkid) as tblP,
-                    (select g.eqkid as ID,count(*) as counterS from phases g, eqlocations c where g.eqkid=c.eqkid and g.type='S' and g.wei<=4 and c.model=1 and c.lcode=2 and c.method=2 and (c.origintime between '{mintime}' and '{maxtime}') group by g.eqkid) as tblS,
-                    eqlocations c, eqstatistics d, magnitudes e, phases f, phases g, stazioni h
-                    where
-                    tblPS.counterPS >= 1
-                    and tblP.counterP >= 1
-                    and tblS.counterS >= 1
-                    and f.wei<= 4
-                    and g.wei<= 4
-                    and d.gap <= 360
-                    and d.mindist <= 40000
-                    and (d.errh <= 40000 or sqrt(pow(d.errx,2)+pow(d.erry,2)) <= 40000)
-                    and d.errv <= 6378
-                    and c.eqkid=tblPS.ID
-                    and c.eqkid=tblP.ID
-                    and c.eqkid=tblS.ID
+                    select distinct 
+                    ( 1 + ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{param_DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) / (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) as vpvs_value,
+                           ( ( (pow(f.wei,2)*0.02 + pow(g.wei,2)*0.02) / ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{param_DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) ) + ((pow(f.wei,2)*0.02)/(TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV}))) as vpvs_error,
+                    c.origintime as event_origin_time,
+                    h.lat as station_latitude,
+                    h.lon as station_longitude, 
+                    h.elev as station_elevation,
+                    h.network as network_code,
+                    h.stacode as station_code,
+                    h.loco as station_location,
+                    f.pick as p_arrival_time,
+                    f.wei as p_quality,
+                    g.pick as s_arrival_time,
+                    g.wei s_quality,
+                    c.eqkID as event_id,
+                    c.id as event_loc_id,
+                    c.lat as event_latitude,
+                    c.lon as event_longitude,
+                    c.elev as event_elevation
+                    from 
+                    (select c.eqkID as ID,count(*) as counterPS from phases f, phases g, eqlocations c, stations h where f.eqkID=g.eqkID and g.eqkID=c.eqkID and f.type='P' and g.type='S' and f.wei<={param_maxpw} and g.wei<={param_maxpw} and f.stacode=g.stacode and f.stacode=h.stacode and g.stacode=h.stacode and f.loco=h.loco and g.loco=h.loco and f.loco=g.loco and (h.lat between {param_minlat} and {param_maxlat}) and (h.lon between {param_minlon} and {param_maxlon}) and (h.elev between {param_mineqdep} and {param_maxeqdep}) and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by f.eqkID) as tblPS,
+                     
+                    (select f.eqkID as ID,count(*) as counterP from phases f, eqlocations c where f.eqkID=c.eqkID and f.type='P' and f.wei<={param_maxpw} and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by f.eqkID) as tblP, 
+                    (select g.eqkID as ID,count(*) as counterS from phases g, eqlocations c where g.eqkID=c.eqkID and g.type='S' and g.wei<={param_maxsw} and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by g.eqkID) as tblS, 
+                    eqlocations c, eqstatistics d, magnitudes e, phases f, phases g, stations h 
+                    where 
+                        tblPS.counterPS >= {param_minps}
+                    and tblP.counterP >= {param_minnp}
+                    and tblS.counterS >= {param_minns}
+                    and f.wei<= {param_maxvpvspw}
+                    and g.wei<= {param_maxvpvssw}
+                    and d.gap <= {param_maxgap}
+                    and d.mindist <= {param_midi}
+                    and (d.errh <= {param_maxherr} or sqrt(pow(d.errx,2)+pow(d.erry,2)) <= {param_maxherr})
+                    and d.errv <= {param_maxverr}
+                    and c.eqkID=tblPS.ID 
+                    and c.eqkID=tblP.ID 
+                    and c.eqkID=tblS.ID 
                     and c.model=1
-                    and (c.lat between {minlat} and {maxlat})
-                    and (c.lon between {minlon} and {maxlon})
-                    and (c.elev between 0 and 15)
-                    and c.id=d.idloc
-                    and c.eqkid=e.eqkid
-                    and (c.origintime between '{mintime}' and '{maxtime}')
-                    and f.eqkid=g.eqkid
-                    and c.eqkid=f.eqkid
-                    and f.eqkid=g.eqkid
-                    and g.eqkid=c.eqkid
-                    and f.type='P'
-                    and g.type='S'
-                    and f.stacode=h.stacode
-                    and h.stacode=g.stacode
-                    and f.stacode=g.stacode
-                    and f.loco=h.loco
-                    and h.loco=g.loco
-                    and f.loco=g.loco
-                    having (vpvs > 1.4) and err <= 1000000
+                    and c.lcode={param_codetype}
+                    and c.method={param_mettype}
+                    and (c.lat between {param_minlat} and {param_maxlat}) 
+                    and (c.lon between {param_minlon} and {param_maxlon}) 
+                    and (c.elev between {param_mineqdep} and {param_maxeqdep}) 
+                    and c.id=d.idloc 
+                    and c.eqkID=e.eqkID 
+                    and e.idloc=c.id
+                    and (c.origintime between '{param_mintime}' and '{param_maxtime}') 
+                    and f.eqkID=g.eqkID 
+                    and c.eqkID=f.eqkID 
+                    and f.eqkID=g.eqkID 
+                    and g.eqkID=c.eqkID 
+                    and f.type='P' 
+                    and g.type='S' 
+                    and f.stacode=h.stacode 
+                    and h.stacode=g.stacode 
+                    and f.stacode=g.stacode 
+                    and f.loco=h.loco 
+                    and h.loco=g.loco 
+                    and f.loco=g.loco 
+                    having (vpvs_value > {param_vpvsmin}) and vpvs_error <= {param_maxvpvserr}
                     order by c.origintime asc
                     limit 10000000;
                     '''.format(**args)
@@ -96,44 +115,60 @@ class IndexHandler(tornado.web.RequestHandler):
 
         # add some example queries
         queries.append(dict(
-            mintime='2001-01-01T00:00:00.000',
-            maxtime='2000-01-01T00:00:00.000',
-            minlat=30,          # -90, 90 and smaller than maxlat
-            maxlat=50,          # -90, 90
-            minlon=40,          # -180, 180 and smaller than maxlon
-            maxlon=60,          # -180, 180
-            mineqdep=-70,       # -6378, -9 and smaller than maxeqdep
-            maxeqdep=-30,       # -6378, -9
-            minnp=2,            # number of p waves, int, min: 0
-            minns=3,            # number of s waves, int, min: 0
-            maxpw=3,            # int, 0, 4
-            maxsw=3,            # int, 0, 4
-            minps=4,            # 0, +
-            maxgap=150,         # azim gap 0, 360
-            midi=70,            # horiz dist of closest sta
-            maxherr=300,        # 0, 4000
-            maxverr=200         # 0, 6378
+            param_mintime='2001-01-01T00:00:00.000',
+            param_maxtime='2000-01-01T00:00:00.000',
+            param_minlat=30,          # -90, 90 and smaller than maxlat
+            param_maxlat=50,          # -90, 90
+            param_minlon=40,          # -180, 180 and smaller than maxlon
+            param_maxlon=60,          # -180, 180
+            param_mineqdep=-70,       # -6378, -9 and smaller than maxeqdep
+            param_maxeqdep=-30,       # -6378, -9
+            param_minnp=2,            # number of p waves, int, min: 0
+            param_minns=3,            # number of s waves, int, min: 0
+            param_maxpw=3,            # int, 0, 4
+            param_maxsw=3,            # int, 0, 4
+            param_minps=4,            # 0, +
+            param_maxvpvspw=3,
+            param_maxvpvssw=3,
+            param_maxgap=150,         # azim gap 0, 360
+            param_midi=70,            # horiz dist of closest sta
+            param_maxherr=300,        # 0, 4000
+            param_maxverr=200,         # 0, 6378
+            param_maxvpvserr=1000000,
+            param_DIV=1000000,
+            param_vpvsmin = 1.41,
+            param_modtype = 1,
+            param_codetype = 2,
+            param_mettype = 2
         ))
 
 
         queries.append(dict(
-            mintime='2010-04-01T00:00:00.000',
-            maxtime='2010-05-01T00:00:00.000',
-            minlat=43.10,          # -90, 90 and smaller than maxlat
-            maxlat=43.65,          # -90, 90
-            minlon=12.10,          # -180, 180 and smaller than maxlon
-            maxlon=12.65,          # -180, 180
-            mineqdep=-70,       # -6378, -9 and smaller than maxeqdep
-            maxeqdep=-30,       # -6378, -9
-            minnp=2,            # number of p waves, int, min: 0
-            minns=3,            # number of s waves, int, min: 0
-            maxpw=3,            # int, 0, 4
-            maxsw=3,            # int, 0, 4
-            minps=4,            # 0, +
-            maxgap=150,         # azim gap 0, 360
-            midi=70,            # horiz dist of closest sta
-            maxherr=300,        # 0, 4000
-            maxverr=200         # 0, 6378
+            param_mintime='2010-04-01T00:00:00.000',
+            param_maxtime='2010-05-01T00:00:00.000',
+            param_minlat=43.10,          # -90, 90 and smaller than maxlat
+            param_maxlat=43.65,          # -90, 90
+            param_minlon=12.10,          # -180, 180 and smaller than maxlon
+            param_maxlon=12.65,          # -180, 180
+            param_mineqdep=-70,       # -6378, -9 and smaller than maxeqdep
+            param_maxeqdep=-30,       # -6378, -9
+            param_minnp=2,            # number of p waves, int, min: 0
+            param_minns=3,            # number of s waves, int, min: 0
+            param_maxpw=3,            # int, 0, 4
+            param_maxsw=3,            # int, 0, 4
+            param_minps=4,            # 0, +
+            param_maxvpvspw=3,
+            param_maxvpvssw=3,
+            param_maxgap=150,         # azim gap 0, 360
+            param_midi=70,            # horiz dist of closest sta
+            param_maxherr=300,        # 0, 4000
+            param_maxverr=200,         # 0, 6378
+            param_maxvpvserr=1000000,
+            param_DIV=1000000,
+            param_vpvsmin = 1.41,
+            param_modtype = 1,
+            param_codetype = 2,
+            param_mettype = 2
         ))
 
         for idx, q in enumerate(queries):
