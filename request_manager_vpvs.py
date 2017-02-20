@@ -83,7 +83,7 @@ class RequestManagerVPVS(object):
                      description='''earthquakes to calculate Vp/Vs are extracted if depth is greater or equal to mineqdep
                      standard reference:  ISO 6709 negative a.s.l. positive b.s.l.''',
                      unit='km',
-                     validators=[v.ValidatorNumberRange(-6378, -9.00)]
+                     validators=[v.ValidatorNumberRange(-9.0, 6378.0)]
                      ).addTo(rq)
 
         RequestParam('param_maxeqdep',
@@ -91,7 +91,7 @@ class RequestManagerVPVS(object):
                      description='''earthquakes to calculate Vp/Vs are extracted if depth is less or equal to mineqdep
                      standard reference:  ISO 6709 negative a.s.l. positive b.s.l.''',
                      unit='km',
-                     validators=[v.ValidatorNumberRange(-6378, -9.0)]
+                     validators=[v.ValidatorNumberRange(-9.0, 6378.0)]
                      ).addTo(rq)
 
         rq.addPostValidator(v.ValidatorPostSmaller('param_mineqdep', 'param_maxeqdep'))

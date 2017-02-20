@@ -144,14 +144,14 @@ class IndexHandler(tornado.web.RequestHandler):
 
 
         queries.append(dict(
-            param_mintime='2010-04-01T00:00:00.000',
-            param_maxtime='2010-05-01T00:00:00.000',
+            param_mintime='2015-01-01T00:00:00.000',
+            param_maxtime='2015-05-01T00:00:00.000',
             param_minlat=43.10,          # -90, 90 and smaller than maxlat
             param_maxlat=43.65,          # -90, 90
             param_minlon=12.10,          # -180, 180 and smaller than maxlon
             param_maxlon=12.65,          # -180, 180
-            param_mineqdep=-70,       # -6378, -9 and smaller than maxeqdep
-            param_maxeqdep=-30,       # -6378, -9
+            param_mineqdep=0.4,       # -9, 6378 and smaller than maxeqdep
+            param_maxeqdep=1.2,       # -9, 6378
             param_minnp=2,            # number of p waves, int, min: 0
             param_minns=3,            # number of s waves, int, min: 0
             param_maxpw=3,            # int, 0, 4
