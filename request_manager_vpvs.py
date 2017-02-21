@@ -136,22 +136,6 @@ class RequestManagerVPVS(object):
                      validators=[v.ValidatorInt(), v.ValidatorNumberMin(0)]
                      ).addTo(rq)
 
-        RequestParam('param_maxvpvspw',
-                     name='',
-                     description='',
-                     default=3,
-                     unit='',
-                     validators=[v.ValidatorNumberRange(0, 4)]
-                     ).addTo(rq)
-
-        RequestParam('param_maxvpvssw',
-                     name='',
-                     description='',
-                     default=3,
-                     unit='',
-                     validators=[v.ValidatorNumberRange(0, 4)]
-                     ).addTo(rq)
-
         RequestParam('param_maxgap',
                      name='degrees of azimuthal stations distribution gap per earthquake',
                      description='''maximum allowed azimuthal gap so that a earthquakes is selected;
@@ -186,7 +170,23 @@ class RequestManagerVPVS(object):
                      unit='km',
                      validators=[v.ValidatorNumberRange(0, 6378)]
                      ).addTo(rq)
-        
+
+        RequestParam('param_maxvpvspw',
+                     name='',
+                     description='',
+                     default=3,
+                     unit='',
+                     validators=[v.ValidatorNumberRange(0, 4)]
+                     ).addTo(rq)
+
+        RequestParam('param_maxvpvssw',
+                     name='',
+                     description='',
+                     default=3,
+                     unit='',
+                     validators=[v.ValidatorNumberRange(0, 4)]
+                     ).addTo(rq)
+
         RequestParam('param_maxvpvserr',
                      name='',
                      description='',
@@ -194,7 +194,7 @@ class RequestManagerVPVS(object):
                      unit='',
                      validators=[v.ValidatorNumberRange(0, 1000000000)]
                      ).addTo(rq)
-                     
+
         RequestParam('param_DIV',
                      name='',
                      description='',
@@ -202,7 +202,7 @@ class RequestManagerVPVS(object):
                      unit='',
                      validators=[v.ValidatorNumberRange(1000000, 1000000)]
                      ).addTo(rq)
-                     
+
         RequestParam('param_vpvsmin',
                      name='',
                      description='',

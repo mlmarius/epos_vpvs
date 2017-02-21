@@ -29,12 +29,12 @@ class MainHandler(handler.APIBaseHandler):
                                 self.config.get('db','db'))
 
             query = '''
-                    select distinct 
+                    select distinct
                     ( 1 + ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{param_DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) / (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) as vpvs_value,
                            ( ( (pow(f.wei,2)*0.02 + pow(g.wei,2)*0.02) / ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{param_DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) ) + ((pow(f.wei,2)*0.02)/(TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV}))) as vpvs_error,
                     c.origintime as event_origin_time,
                     h.lat as station_latitude,
-                    h.lon as station_longitude, 
+                    h.lon as station_longitude,
                     h.elev as station_elevation,
                     h.network as network_code,
                     h.stacode as station_code,
@@ -48,13 +48,13 @@ class MainHandler(handler.APIBaseHandler):
                     c.lat as event_latitude,
                     c.lon as event_longitude,
                     c.elev as event_elevation
-                    from 
+                    from
                     (select c.eqkID as ID,count(*) as counterPS from phases f, phases g, eqlocations c, stations h where f.eqkID=g.eqkID and g.eqkID=c.eqkID and f.type='P' and g.type='S' and f.wei<={param_maxpw} and g.wei<={param_maxpw} and f.stacode=g.stacode and f.stacode=h.stacode and g.stacode=h.stacode and f.loco=h.loco and g.loco=h.loco and f.loco=g.loco and (h.lat between {param_minlat} and {param_maxlat}) and (h.lon between {param_minlon} and {param_maxlon}) and (h.elev between {param_mineqdep} and {param_maxeqdep}) and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by f.eqkID) as tblPS,
-                     
-                    (select f.eqkID as ID,count(*) as counterP from phases f, eqlocations c where f.eqkID=c.eqkID and f.type='P' and f.wei<={param_maxpw} and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by f.eqkID) as tblP, 
-                    (select g.eqkID as ID,count(*) as counterS from phases g, eqlocations c where g.eqkID=c.eqkID and g.type='S' and g.wei<={param_maxsw} and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by g.eqkID) as tblS, 
-                    eqlocations c, eqstatistics d, magnitudes e, phases f, phases g, stations h 
-                    where 
+
+                    (select f.eqkID as ID,count(*) as counterP from phases f, eqlocations c where f.eqkID=c.eqkID and f.type='P' and f.wei<={param_maxpw} and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by f.eqkID) as tblP,
+                    (select g.eqkID as ID,count(*) as counterS from phases g, eqlocations c where g.eqkID=c.eqkID and g.type='S' and g.wei<={param_maxsw} and c.model={param_modtype} and c.lcode={param_codetype} and c.method={param_mettype} and (c.origintime between '{param_mintime}' and '{param_maxtime}') group by g.eqkID) as tblS,
+                    eqlocations c, eqstatistics d, magnitudes e, phases f, phases g, stations h
+                    where
                         tblPS.counterPS >= {param_minps}
                     and tblP.counterP >= {param_minnp}
                     and tblS.counterS >= {param_minns}
@@ -64,31 +64,31 @@ class MainHandler(handler.APIBaseHandler):
                     and d.mindist <= {param_midi}
                     and (d.errh <= {param_maxherr} or sqrt(pow(d.errx,2)+pow(d.erry,2)) <= {param_maxherr})
                     and d.errv <= {param_maxverr}
-                    and c.eqkID=tblPS.ID 
-                    and c.eqkID=tblP.ID 
-                    and c.eqkID=tblS.ID 
+                    and c.eqkID=tblPS.ID
+                    and c.eqkID=tblP.ID
+                    and c.eqkID=tblS.ID
                     and c.model=1
                     and c.lcode={param_codetype}
                     and c.method={param_mettype}
-                    and (c.lat between {param_minlat} and {param_maxlat}) 
-                    and (c.lon between {param_minlon} and {param_maxlon}) 
-                    and (c.elev between {param_mineqdep} and {param_maxeqdep}) 
-                    and c.id=d.idloc 
-                    and c.eqkID=e.eqkID 
+                    and (c.lat between {param_minlat} and {param_maxlat})
+                    and (c.lon between {param_minlon} and {param_maxlon})
+                    and (c.elev between {param_mineqdep} and {param_maxeqdep})
+                    and c.id=d.idloc
+                    and c.eqkID=e.eqkID
                     and e.idloc=c.id
-                    and (c.origintime between '{param_mintime}' and '{param_maxtime}') 
-                    and f.eqkID=g.eqkID 
-                    and c.eqkID=f.eqkID 
-                    and f.eqkID=g.eqkID 
-                    and g.eqkID=c.eqkID 
-                    and f.type='P' 
-                    and g.type='S' 
-                    and f.stacode=h.stacode 
-                    and h.stacode=g.stacode 
-                    and f.stacode=g.stacode 
-                    and f.loco=h.loco 
-                    and h.loco=g.loco 
-                    and f.loco=g.loco 
+                    and (c.origintime between '{param_mintime}' and '{param_maxtime}')
+                    and f.eqkID=g.eqkID
+                    and c.eqkID=f.eqkID
+                    and f.eqkID=g.eqkID
+                    and g.eqkID=c.eqkID
+                    and f.type='P'
+                    and g.type='S'
+                    and f.stacode=h.stacode
+                    and h.stacode=g.stacode
+                    and f.stacode=g.stacode
+                    and f.loco=h.loco
+                    and h.loco=g.loco
+                    and f.loco=g.loco
                     having (vpvs_value > {param_vpvsmin}) and vpvs_error <= {param_maxvpvserr}
                     order by c.origintime asc
                     limit 10000000;
@@ -100,8 +100,12 @@ class MainHandler(handler.APIBaseHandler):
 
             db.query(query)
             rs = db.store_result()
-            self.send_success_response(json.dumps(dict(result=rs.fetch_row(maxrows=0, how=1))))
-            db.close()
+            # self.send_success_response(json.dumps(dict(result=rs.fetch_row(maxrows=0, how=1))))
+            # db.close()
+
+            resp = self.render_string('response.json', result=json.dumps(rs.fetch_row(maxrows=0, how=1)))
+            self.write(resp)
+            self.set_header('Content-Type', 'application/json')
             return
         else:
             errors = [e.message for e in user_request.global_errors]
