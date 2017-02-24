@@ -91,7 +91,7 @@ class MainHandler(handler.APIBaseHandler):
                     and f.loco=g.loco
                     having (vpvs_value > {param_vpvsmin}) and vpvs_error <= {param_maxvpvserr}
                     order by c.origintime asc
-                    limit 3;
+                    limit 1000000;
                     '''.format(**args)
 
             # uncomment lines 75, 76 in order to echo the query to the screen and stop
