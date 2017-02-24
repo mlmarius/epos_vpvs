@@ -25,6 +25,7 @@ mv config.ini.sample config.ini
 ```
 
 Dont't forget to edit config.ini and replace your own config details
+so that the app has access to the database obtained by importing seismo_DB_20170220.sql
 
 Now run the app
 ```
