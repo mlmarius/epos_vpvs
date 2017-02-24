@@ -31,4 +31,4 @@ Now run the app
 python vpvs.py
 ```
 
-You should now be able to access the app on port 8888
+You should now be able to access the app on port 8888 or your configured port
