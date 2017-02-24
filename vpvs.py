@@ -91,7 +91,7 @@ class MainHandler(handler.APIBaseHandler):
                     and f.loco=g.loco
                     having (vpvs_value > {param_vpvsmin}) and vpvs_error <= {param_maxvpvserr}
                     order by c.origintime asc
-                    limit 10000000;
+                    limit 3;
                     '''.format(**args)
 
             # uncomment lines 75, 76 in order to echo the query to the screen and stop
@@ -182,7 +182,7 @@ class IndexHandler(tornado.web.RequestHandler):
 
         manager = RequestManagerVPVS()
 
-        self.render('vpvs_index.html', queries=queries, manager=manager)
+        self.render('index.html', queries=queries, manager=manager)
 
 if __name__ == "__main__":
 
@@ -198,5 +198,5 @@ if __name__ == "__main__":
         (r"/", IndexHandler),
         (r"/query", MainHandler, dict(config=cfg))
     ], **settings)
-    application.listen(8888)
+    application.listen(cfg.get('service', 'port'))
     tornado.ioloop.IOLoop.current().start()

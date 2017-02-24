@@ -3,3 +3,5 @@ host: your_db_hostname_or_ip
 user: your_db_user
 pass: your_db_pass
 db: your_db_name
+[service]
+port: 8888
