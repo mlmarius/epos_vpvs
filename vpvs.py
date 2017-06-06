@@ -109,6 +109,7 @@ class MainHandler(handler.APIBaseHandler):
             return
         else:
             errors = [e.message for e in user_request.global_errors]
+            errors.extend(["{0}: {1}".format(param.varname,error.message) for param,error in user_req
             return self.send_error_response(errors)
 
 
