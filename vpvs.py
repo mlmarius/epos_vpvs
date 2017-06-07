@@ -252,7 +252,18 @@ class DcatHandler(tornado.web.RequestHandler):
             for validator in param.validators:
                 validator_description = recurse(validator)
                 # parameter name, parameter primitive type, validation tags, validator descriptions
-                param_descriptions.append([param.varname, validator_description[1], validator_description[2], validator_description[3]])
+                validation_hints = list(validator_description[2])
+                if param.unit:
+                    validation_hints.append('unit:{}'.format(param.unit))
+
+                descriptions = list(validator_description[3])
+                param_description = param.describe()
+                if param_description:
+                    param_description.strip()
+                    descriptions.append(param_description)
+
+
+                param_descriptions.append([param.varname, validator_description[1], validation_hints, descriptions])
 
         self.set_header("Content-Type", 'application/xml; charset="utf-8"')
         # self.set_header("Content-Disposition", "attachment; filename=dcat.xml")  

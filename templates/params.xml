@@ -4,16 +4,20 @@
 		<dct:type>
 			{{ description[1] }}
 		</dct:type>
+		{% if description[2] %}
 		<dct:validationHints>
 			{% for hint in description[2] %}
 			<dct:validationHint>{{ hint }}</dct:validationHint>
 		    {% end %}
 		</dct:validationHints>
-		<dct:validationHints>
+		{% end %}
+		{% if description[3] %}
+		<dct:validationMessages>
 			{% for message in description[3] %}
-			<dct:validationHint>{{ message }}</dct:validationHint>
+			<dct:validationMessage>{{ message }}</dct:validationMessage>
 		    {% end %}
-		</dct:validationHints>
+		</dct:validationMessages>
+		{% end %}
 		<owl:versionInfo>1.0</owl:versionInfo>
 	</eposap:parameter>
 {% end %}
