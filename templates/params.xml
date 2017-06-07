@@ -4,7 +4,8 @@
 		<dct:type>
 			{{ description[1] }}
 		</dct:type>
-		{% if description[2] %}
+		<owl:versionInfo>1.0</owl:versionInfo>
+<!-- 		{% if description[2] %}
 		<dct:validationHints>
 			{% for hint in description[2] %}
 			<dct:validationHint>{{ hint }}</dct:validationHint>
@@ -18,7 +19,6 @@
 		    {% end %}
 		</dct:validationMessages>
 		{% end %}
-		<owl:versionInfo>1.0</owl:versionInfo>
-	</eposap:parameter>
+ -->	</eposap:parameter>
 {% end %}
 
