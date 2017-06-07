@@ -10,7 +10,6 @@ xmlns:adms="http://www.w3.org/ns/adms#"
 	xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.epos-ip.org/ https://raw.githubusercontent.com/epos-eu/EPOS-DCAT-AP/master/schemas/EPOS-DCAT-AP.xsd">
 
-
 	<!-- EPOS Catalog -->
 	<eposap:Catalog>
 		<dct:title>Example of catalog</dct:title>
@@ -215,15 +214,17 @@ xmlns:adms="http://www.w3.org/ns/adms#"
 			map service
 		</dct:type>
 		<dcat:keyword>Laboratories, rocks</dcat:keyword> <!-- Keywords -->
-		
+	
+
 
 		<!-- List of Parameters: 
 			this section is needed in order to describe the parameters of the service. 
 			E.g. in the case of a RESTful service, we may have "domain" as parameter, 
 			with type "string" and a list of allowed value terms specified by the value tag, 
 			e.g. 'seism','gps'  (i.e. namespace)-->
-		{% module Template('params.xml', param_descriptions=param_descriptions)%}
-	
+		{% module Template('params.xml', param_descriptions=param_descriptions)%}	
+
+		
 		<dcat:contactPoint>personID01</dcat:contactPoint> <!-- internal link to contact point (vcard:Individual) described in the same file in <eposap:Person> -->
 		<eposap:responsibleParty>personID01</eposap:responsibleParty> <!-- internal link to responsibleParty (vcard:Individual) described in the same file in <eposap:Person> -->
 		<dct:spatial> <!-- Geographic location/spatial extent /bounding box -->
@@ -346,4 +347,3 @@ xmlns:adms="http://www.w3.org/ns/adms#"
 
 
 </eposap:Epos>
-
