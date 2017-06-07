@@ -1,0 +1,20 @@
+{% for description in param_descriptions %}
+	<eposap:parameter>
+		<http:paramName>{{ description[0] }}</http:paramName>
+		<dct:type>
+			{{ description[1] }}
+		</dct:type>
+		<dct:validationHints>
+			{% for hint in description[2] %}
+			<dct:validationHint>{{ hint }}</dct:validationHint>
+		    {% end %}
+		</dct:validationHints>
+		<dct:validationHints>
+			{% for message in description[3] %}
+			<dct:validationHint>{{ message }}</dct:validationHint>
+		    {% end %}
+		</dct:validationHints>
+		<owl:versionInfo>1.0</owl:versionInfo>
+	</eposap:parameter>
+{% end %}
+

@@ -109,7 +109,7 @@ class MainHandler(handler.APIBaseHandler):
             return
         else:
             errors = [e.message for e in user_request.global_errors]
-            errors.extend(["{0}: {1}".format(param.varname,error.message) for param,error in user_req
+            errors.extend(["{0}: {1}".format(param.varname,error.message) for param,error in user_request.errors ])
             return self.send_error_response(errors)
 
 
@@ -185,6 +185,79 @@ class IndexHandler(tornado.web.RequestHandler):
 
         self.render('index.html', queries=queries, manager=manager)
 
+class DcatHandler(tornado.web.RequestHandler):
+
+    def initialize(self, config):
+        self.config = config
+
+    def get(self):
+
+        def recurse(validator, vartype=None, type_tags=None, descriptions=None):
+
+            if type_tags is None:
+                type_tags = []
+
+            if descriptions is None:
+                descriptions = []
+
+            # print validator
+            try:
+                if isinstance(validator, list):
+                    results = [None, None, [], []]
+                    for crt_validator in validator:
+                        _, crt_vartype, crt_type_tags, crt_descriptions = recurse(crt_validator, vartype, type_tags, descriptions)
+                        
+                        if results[1] is None:
+                            results[1] = crt_vartype
+
+                        results[2].extend(crt_type_tags)
+                        results[3].append(crt_validator.describe())
+
+                    results[2] = set(results[2])
+                    results[3] = set(results[3])
+                    return results
+            except TypeError as e:
+                # print "not a list of validators"
+                pass
+
+            try:
+                vartype = validator.type
+            except AttributeError:
+                # print "does not have validator.type"
+                pass
+
+            try:
+                type_tags.extend(validator.type_tags)
+                # print type_tags
+            except AttributeError:
+                # print "does not have validator.type_tags"
+                pass
+
+
+            try:
+                # print "recursing to internal_validators"
+                return recurse(validator.internal_validators, vartype, type_tags)
+            except AttributeError as e:
+                # print e
+                # print "does not have internal_validators"
+                return (validator, vartype, type_tags, [validator.describe()])
+
+
+                
+
+        manager = RequestManagerVPVS()
+
+        param_descriptions = []
+        for param in manager.rq.parameters:
+            for validator in param.validators:
+                validator_description = recurse(validator)
+                # parameter name, parameter primitive type, validation tags, validator descriptions
+                param_descriptions.append([param.varname, validator_description[1], validator_description[2], validator_description[3]])
+
+        self.set_header("Content-Type", 'application/xml; charset="utf-8"')
+        # self.set_header("Content-Disposition", "attachment; filename=dcat.xml")  
+        self.render('dcat.xml', param_descriptions=param_descriptions)
+
 if __name__ == "__main__":
 
     cfg = ConfigParser()
@@ -197,7 +270,8 @@ if __name__ == "__main__":
 
     application = tornado.web.Application([
         (r"/", IndexHandler),
-        (r"/query", MainHandler, dict(config=cfg))
+        (r"/query", MainHandler, dict(config=cfg)),
+        (r"/dcat", DcatHandler, dict(config=cfg))
     ], **settings)
     application.listen(cfg.get('service', 'port'))
     tornado.ioloop.IOLoop.current().start()
