@@ -185,7 +185,7 @@ class IndexHandler(tornado.web.RequestHandler):
 
         self.render('index.html', queries=queries, manager=manager)
 
-class DcatHandler(handler.APIBaseHandler):
+class DcatHandler(tornado.web.RequestHandler):
 
     def initialize(self, config):
         self.config = config
@@ -267,10 +267,7 @@ class DcatHandler(handler.APIBaseHandler):
 
         self.set_header("Content-Type", 'application/xml; charset="utf-8"')
         # self.set_header("Content-Disposition", "attachment; filename=dcat.xml")  
-        try:
-            self.render('dcat.xml', param_descriptions=param_descriptions)
-        except IOError:
-            self.send_error_response('Please move dcat.sample.xml to dcat.xml and customise.')
+        self.render('dcat.xml', param_descriptions=param_descriptions)
 
 if __name__ == "__main__":
 

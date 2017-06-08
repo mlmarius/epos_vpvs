@@ -90,3 +90,4 @@ ENV/
 
 # local config file
 config.ini
+templates/dcat.xml
