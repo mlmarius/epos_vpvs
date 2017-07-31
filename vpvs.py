@@ -6,7 +6,7 @@ import tornado.escape
 from request_manager_vpvs import RequestManagerVPVS
 import _mysql
 import json
-from ConfigParser import ConfigParser
+from ConfigParser import ConfigParser, NoSectionError
 import os
 
 
@@ -299,7 +299,7 @@ if __name__ == "__main__":
 
         try:
             cfg.set(sectionname, varname, v)
-        except ConfigParser.NoSectionError:
+        except NoSectionError:
             cfg.add_section(sectionname)
             cfg.set(sectionname, varname, v)
 
