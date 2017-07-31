@@ -296,7 +296,12 @@ if __name__ == "__main__":
         keyparts = k.split('_')
         sectionname = keyparts[0]
         varname = '_'.join(keyparts[1:])
-        cfg.set(sectionname, varname, v)
+
+        try:
+            cfg.set(sectionname, varname, v)
+        except ConfigParser.NoSectionError:
+            cfg.add_section(sectionname)
+            cfg.set(sectionname, varname, v)
 
     settings = dict(
         debug=True,
