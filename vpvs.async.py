@@ -8,27 +8,36 @@ import _mysql
 import json
 from ConfigParser import ConfigParser
 
+from tornado.concurrent import run_on_executor
+# `pip install futures` for python2
+from concurrent.futures import ThreadPoolExecutor
+# from concurrent.futures import ProcessPoolExecutor
+
+MAX_WORKERS = 8
+
+
 class MainHandler(handler.APIBaseHandler):
+    executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
+    # executor = ProcessPoolExecutor(max_workers=MAX_WORKERS)
 
     def initialize(self, config):
         self.config = config
 
-    def do_get(self):
-        manager = RequestManagerVPVS()
-        user_request = manager.bind(self).validate()
-        if user_request.is_valid:
-            args = user_request.getArgs()
+    @run_on_executor
+    def do_query(self, user_request):
+        print "do_query(): start"
+        args = user_request.getArgs()
 
-            # Uncomment lines 17, 18 in order to just show the user request args and stop
-            # self.send_success_response(args)
-            # return
+        # Uncomment lines 17, 18 in order to just show the user request args and stop
+        # self.send_success_response(args)
+        # return
 
-            db = _mysql.connect(self.config.get('db','host'),
-                                self.config.get('db','user'),
-                                self.config.get('db','pass'),
-                                self.config.get('db','db'))
+        db = _mysql.connect(self.config.get('db', 'host'),
+                            self.config.get('db', 'user'),
+                            self.config.get('db', 'pass'),
+                            self.config.get('db', 'db'))
 
-            query = '''
+        query = '''
                     select distinct
                     ( 1 + ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{param_DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) / (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) as vpvs_value,
                            ( ( (pow(f.wei,2)*0.02 + pow(g.wei,2)*0.02) / ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{param_DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV})) ) + ((pow(f.wei,2)*0.02)/(TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{param_DIV}))) as vpvs_error,
@@ -94,23 +103,36 @@ class MainHandler(handler.APIBaseHandler):
                     limit 1000000;
                     '''.format(**args)
 
-            # uncomment lines 75, 76 in order to echo the query to the screen and stop
-            # self.send_success_response(query)
-            # return
+        # uncomment lines 75, 76 in order to echo the query to the screen and stop
+        # self.send_success_response(query)
+        # return
 
-            db.query(query)
-            rs = db.store_result()
-            # self.send_success_response(json.dumps(dict(result=rs.fetch_row(maxrows=0, how=1))))
-            # db.close()
+        db.query(query)
+        rs = db.store_result()
+        # self.send_success_response(json.dumps(dict(result=rs.fetch_row(maxrows=0, how=1))))
+        # db.close()
+        print "do_query(): now returning result"
+        return rs
 
-            resp = self.render_string('response.json', result=json.dumps(rs.fetch_row(maxrows=0, how=1)))
+    @tornado.gen.coroutine
+    def do_get(self):
+        print "do_get(): start"
+        manager = RequestManagerVPVS()
+        user_request = manager.bind(self).validate()
+        if user_request.is_valid:
+            rs = yield self.do_query(user_request)
+            print "do_get(): got result from do_query()"
+            resp = self.render_string(
+                'response.json', result=json.dumps(rs.fetch_row(maxrows=0, how=1)))
             self.write(resp)
             self.set_header('Content-Type', 'application/json')
+            print "do_get(): response sent"
             return
         else:
             errors = [e.message for e in user_request.global_errors]
-            errors.extend(["{0}: {1}".format(param.varname,error.message) for param,error in user_request.errors ])
-            return self.send_error_response(errors)
+            errors.extend(["{0}: {1}".format(param.varname, error.message)
+                           for param, error in user_request.errors])
+            self.send_error_response(errors)
 
 
 class IndexHandler(tornado.web.RequestHandler):
@@ -141,12 +163,11 @@ class IndexHandler(tornado.web.RequestHandler):
             param_maxverr=200,         # 0, 6378
             param_maxvpvserr=1000000,
             param_DIV=1000000,
-            param_vpvsmin = 1.41,
-            param_modtype = 1,
-            param_codetype = 2,
-            param_mettype = 2
+            param_vpvsmin=1.41,
+            param_modtype=1,
+            param_codetype=2,
+            param_mettype=2
         ))
-
 
         queries.append(dict(
             param_mintime='2015-01-01T00:00:00.000',
@@ -170,20 +191,22 @@ class IndexHandler(tornado.web.RequestHandler):
             param_maxverr=200,         # 0, 6378
             param_maxvpvserr=1000000,
             param_DIV=1000000,
-            param_vpvsmin = 1.41,
-            param_modtype = 1,
-            param_codetype = 2,
-            param_mettype = 2
+            param_vpvsmin=1.41,
+            param_modtype=1,
+            param_codetype=2,
+            param_mettype=2
         ))
 
         for idx, q in enumerate(queries):
-            queries[idx] = '&'.join([ '{}={}'.format(k, v) for k, v in q.iteritems() ])
+            queries[idx] = '&'.join(['{}={}'.format(k, v)
+                                     for k, v in q.iteritems()])
         # transform the queries into http query strings
         queries = ['/query?%s' % q for q in queries]
 
         manager = RequestManagerVPVS()
 
         self.render('index.html', queries=queries, manager=manager)
+
 
 class DcatHandler(tornado.web.RequestHandler):
 
@@ -193,7 +216,7 @@ class DcatHandler(tornado.web.RequestHandler):
     def get(self):
 
         def recurse(validator, vartype=None, type_tags=None, descriptions=None):
-
+            """Extract all validator information from the request."""
             if type_tags is None:
                 type_tags = []
 
@@ -205,8 +228,9 @@ class DcatHandler(tornado.web.RequestHandler):
                 if isinstance(validator, list):
                     results = [None, None, [], []]
                     for crt_validator in validator:
-                        _, crt_vartype, crt_type_tags, crt_descriptions = recurse(crt_validator, vartype, type_tags, descriptions)
-                        
+                        _, crt_vartype, crt_type_tags, crt_descriptions = recurse(
+                            crt_validator, vartype, type_tags, descriptions)
+
                         if results[1] is None:
                             results[1] = crt_vartype
 
@@ -216,7 +240,7 @@ class DcatHandler(tornado.web.RequestHandler):
                     results[2] = set(results[2])
                     results[3] = set(results[3])
                     return results
-            except TypeError as e:
+            except TypeError:
                 # print "not a list of validators"
                 pass
 
@@ -233,17 +257,13 @@ class DcatHandler(tornado.web.RequestHandler):
                 # print "does not have validator.type_tags"
                 pass
 
-
             try:
                 # print "recursing to internal_validators"
                 return recurse(validator.internal_validators, vartype, type_tags)
-            except AttributeError as e:
+            except AttributeError:
                 # print e
                 # print "does not have internal_validators"
                 return (validator, vartype, type_tags, [validator.describe()])
-
-
-                
 
         manager = RequestManagerVPVS()
 
@@ -251,7 +271,8 @@ class DcatHandler(tornado.web.RequestHandler):
         for param in manager.rq.parameters:
             for validator in param.validators:
                 validator_description = recurse(validator)
-                # parameter name, parameter primitive type, validation tags, validator descriptions
+                # parameter name, parameter primitive type, validation tags,
+                # validator descriptions
                 validation_hints = list(validator_description[2])
                 if param.unit:
                     validation_hints.append('unit:{}'.format(param.unit))
@@ -262,11 +283,11 @@ class DcatHandler(tornado.web.RequestHandler):
                     param_description.strip()
                     descriptions.append(param_description)
 
-
-                param_descriptions.append([param.varname, validator_description[1], validation_hints, descriptions])
+                param_descriptions.append([param.varname, validator_description[
+                                          1], validation_hints, descriptions])
 
         self.set_header("Content-Type", 'application/xml; charset="utf-8"')
-        # self.set_header("Content-Disposition", "attachment; filename=dcat.xml")  
+        # self.set_header("Content-Disposition", "attachment; filename=dcat.xml")
         self.render('dcat.xml', param_descriptions=param_descriptions)
 
 if __name__ == "__main__":
@@ -285,4 +306,10 @@ if __name__ == "__main__":
         (r"/dcat", DcatHandler, dict(config=cfg))
     ], **settings)
     application.listen(cfg.get('service', 'port'))
+
+    def foo():
+        import datetime
+        print "{} tornado loop is runing...".format(datetime.datetime.now())
+
+    tornado.ioloop.PeriodicCallback(foo, 1000).start()
     tornado.ioloop.IOLoop.current().start()

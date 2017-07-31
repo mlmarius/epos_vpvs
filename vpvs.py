@@ -8,6 +8,7 @@ import _mysql
 import json
 from ConfigParser import ConfigParser
 
+
 class MainHandler(handler.APIBaseHandler):
 
     def initialize(self, config):
@@ -23,10 +24,10 @@ class MainHandler(handler.APIBaseHandler):
             # self.send_success_response(args)
             # return
 
-            db = _mysql.connect(self.config.get('db','host'),
-                                self.config.get('db','user'),
-                                self.config.get('db','pass'),
-                                self.config.get('db','db'))
+            db = _mysql.connect(self.config.get('db', 'host'),
+                                self.config.get('db', 'user'),
+                                self.config.get('db', 'pass'),
+                                self.config.get('db', 'db'))
 
             query = '''
                     select distinct
@@ -103,13 +104,15 @@ class MainHandler(handler.APIBaseHandler):
             # self.send_success_response(json.dumps(dict(result=rs.fetch_row(maxrows=0, how=1))))
             # db.close()
 
-            resp = self.render_string('response.json', result=json.dumps(rs.fetch_row(maxrows=0, how=1)))
+            resp = self.render_string(
+                'response.json', result=json.dumps(rs.fetch_row(maxrows=0, how=1)))
             self.write(resp)
             self.set_header('Content-Type', 'application/json')
             return
         else:
             errors = [e.message for e in user_request.global_errors]
-            errors.extend(["{0}: {1}".format(param.varname,error.message) for param,error in user_request.errors ])
+            errors.extend(["{0}: {1}".format(param.varname, error.message)
+                           for param, error in user_request.errors])
             return self.send_error_response(errors)
 
 
@@ -141,12 +144,11 @@ class IndexHandler(tornado.web.RequestHandler):
             param_maxverr=200,         # 0, 6378
             param_maxvpvserr=1000000,
             param_DIV=1000000,
-            param_vpvsmin = 1.41,
-            param_modtype = 1,
-            param_codetype = 2,
-            param_mettype = 2
+            param_vpvsmin=1.41,
+            param_modtype=1,
+            param_codetype=2,
+            param_mettype=2
         ))
-
 
         queries.append(dict(
             param_mintime='2015-01-01T00:00:00.000',
@@ -170,20 +172,22 @@ class IndexHandler(tornado.web.RequestHandler):
             param_maxverr=200,         # 0, 6378
             param_maxvpvserr=1000000,
             param_DIV=1000000,
-            param_vpvsmin = 1.41,
-            param_modtype = 1,
-            param_codetype = 2,
-            param_mettype = 2
+            param_vpvsmin=1.41,
+            param_modtype=1,
+            param_codetype=2,
+            param_mettype=2
         ))
 
         for idx, q in enumerate(queries):
-            queries[idx] = '&'.join([ '{}={}'.format(k, v) for k, v in q.iteritems() ])
+            queries[idx] = '&'.join(['{}={}'.format(k, v)
+                                     for k, v in q.iteritems()])
         # transform the queries into http query strings
         queries = ['/query?%s' % q for q in queries]
 
         manager = RequestManagerVPVS()
 
         self.render('index.html', queries=queries, manager=manager)
+
 
 class DcatHandler(handler.APIBaseHandler):
 
@@ -205,8 +209,9 @@ class DcatHandler(handler.APIBaseHandler):
                 if isinstance(validator, list):
                     results = [None, None, [], []]
                     for crt_validator in validator:
-                        _, crt_vartype, crt_type_tags, crt_descriptions = recurse(crt_validator, vartype, type_tags, descriptions)
-                        
+                        _, crt_vartype, crt_type_tags, crt_descriptions = recurse(
+                            crt_validator, vartype, type_tags, descriptions)
+
                         if results[1] is None:
                             results[1] = crt_vartype
 
@@ -216,7 +221,7 @@ class DcatHandler(handler.APIBaseHandler):
                     results[2] = set(results[2])
                     results[3] = set(results[3])
                     return results
-            except TypeError as e:
+            except TypeError:
                 # print "not a list of validators"
                 pass
 
@@ -233,17 +238,13 @@ class DcatHandler(handler.APIBaseHandler):
                 # print "does not have validator.type_tags"
                 pass
 
-
             try:
                 # print "recursing to internal_validators"
                 return recurse(validator.internal_validators, vartype, type_tags)
-            except AttributeError as e:
+            except AttributeError:
                 # print e
                 # print "does not have internal_validators"
                 return (validator, vartype, type_tags, [validator.describe()])
-
-
-                
 
         manager = RequestManagerVPVS()
 
@@ -251,7 +252,8 @@ class DcatHandler(handler.APIBaseHandler):
         for param in manager.rq.parameters:
             for validator in param.validators:
                 validator_description = recurse(validator)
-                # parameter name, parameter primitive type, validation tags, validator descriptions
+                # parameter name, parameter primitive type, validation tags,
+                # validator descriptions
                 validation_hints = list(validator_description[2])
                 if param.unit:
                     validation_hints.append('unit:{}'.format(param.unit))
@@ -262,20 +264,38 @@ class DcatHandler(handler.APIBaseHandler):
                     param_description.strip()
                     descriptions.append(param_description)
 
-
-                param_descriptions.append([param.varname, validator_description[1], validation_hints, descriptions])
+                param_descriptions.append([param.varname, validator_description[
+                                          1], validation_hints, descriptions])
 
         self.set_header("Content-Type", 'application/xml; charset="utf-8"')
-        # self.set_header("Content-Disposition", "attachment; filename=dcat.xml")  
+        # self.set_header("Content-Disposition", "attachment; filename=dcat.xml")
         try:
             self.render('dcat.xml', param_descriptions=param_descriptions)
         except IOError:
-            self.send_error_response('Please move dcat.sample.xml to dcat.xml and customise.')
+            self.send_error_response(
+                'Please move dcat.sample.xml to dcat.xml and customise.')
 
 if __name__ == "__main__":
 
     cfg = ConfigParser()
     cfg.read('config.ini')
+
+    # if environment configuration is present then override whatever there is
+    # usefull for overriding configuration in Docker mode
+    # environment variables should look like this EP_SECTIONNAME_VARNAME_HERE='value'
+
+    # EP_DB_HOST=<ip or hostname of database>
+    # EP_DB_USER=<username of db>
+    # EP_DB_PASS=<password to the database>
+    # EP_DB_DB=<name of database>
+    # EP_SERVICE_PORT=<port on which the app is running>
+
+    env_config = {key[3:].lower(): val for key, val in os.environ.items() if key.startswith('EP_')}
+    for k, v in env_config.items():
+        keyparts = k.split('_')
+        sectionname = keyparts[0]
+        varname = '_'.join(keyparts[1:])
+        cfg.set(sectionname, varname, v)
 
     settings = dict(
         debug=True,
