@@ -7,6 +7,7 @@ from request_manager_vpvs import RequestManagerVPVS
 import _mysql
 import json
 from ConfigParser import ConfigParser
+import os
 
 
 class MainHandler(handler.APIBaseHandler):
