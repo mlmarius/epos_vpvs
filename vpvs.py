@@ -151,32 +151,62 @@ class IndexHandler(tornado.web.RequestHandler):
             mettype=2
         ))
 
+        # this works on the TABOO database
+        # queries.append(dict(
+        #     mintime='2015-01-01T00:00:00.000',
+        #     maxtime='2015-05-01T00:00:00.000',
+        #     minlat=43.10,          # -90, 90 and smaller than maxlat
+        #     maxlat=43.65,          # -90, 90
+        #     minlon=12.10,          # -180, 180 and smaller than maxlon
+        #     maxlon=12.65,          # -180, 180
+        #     mineqdep=0.4,       # -9, 6378 and smaller than maxeqdep
+        #     maxeqdep=1.2,       # -9, 6378
+        #     minnp=2,            # number of p waves, int, min: 0
+        #     minns=3,            # number of s waves, int, min: 0
+        #     maxpw=3,            # int, 0, 4
+        #     maxsw=3,            # int, 0, 4
+        #     minps=4,            # 0, +
+        #     maxvpvspw=3,
+        #     maxvpvssw=3,
+        #     maxgap=150,         # azim gap 0, 360
+        #     midi=70,            # horiz dist of closest sta
+        #     maxherr=300,        # 0, 4000
+        #     maxverr=200,         # 0, 6378
+        #     maxvpvserr=1000000,
+        #     DIV=1000000,
+        #     vpvsmin=1.41,
+        #     modtype=1,
+        #     codetype=2,
+        #     mettype=2
+        # ))
+
+        # this works on the NIEP database
         queries.append(dict(
-            mintime='2015-01-01T00:00:00.000',
-            maxtime='2015-05-01T00:00:00.000',
-            minlat=43.10,          # -90, 90 and smaller than maxlat
-            maxlat=43.65,          # -90, 90
-            minlon=12.10,          # -180, 180 and smaller than maxlon
-            maxlon=12.65,          # -180, 180
-            mineqdep=0.4,       # -9, 6378 and smaller than maxeqdep
-            maxeqdep=1.2,       # -9, 6378
-            minnp=2,            # number of p waves, int, min: 0
-            minns=3,            # number of s waves, int, min: 0
-            maxpw=3,            # int, 0, 4
-            maxsw=3,            # int, 0, 4
-            minps=4,            # 0, +
-            maxvpvspw=3,
-            maxvpvssw=3,
-            maxgap=150,         # azim gap 0, 360
-            midi=70,            # horiz dist of closest sta
-            maxherr=300,        # 0, 4000
-            maxverr=200,         # 0, 6378
-            maxvpvserr=1000000,
-            DIV=1000000,
+            minnp=2,
             vpvsmin=1.41,
-            modtype=1,
             codetype=2,
-            mettype=2
+            minlon=19,
+            maxgap=150,
+            mintime='2017-01-01T00:00:00.000',
+            maxverr=200,
+            modtype=1,
+            minlat=42,
+            maxlon=30,
+            midi=70,
+            maxvpvserr=1000000,
+            mineqdep=0.0,
+            DIV=1000000,
+            maxsw=4,
+            minns=3,
+            maxvpvssw=4,
+            maxlat=48,
+            minps=4,
+            maxeqdep=200,
+            mettype=2,
+            maxtime='2017-05-01T00:00:00.000',
+            maxherr=300,
+            maxvpvspw=4,
+            maxpw=4
         ))
 
         for idx, q in enumerate(queries):
