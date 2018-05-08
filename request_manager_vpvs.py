@@ -235,6 +235,16 @@ class RequestManagerVPVS(object):
                      validators=[v.ValidatorNumberRange(2, 2)]
                      ).addTo(rq)
 
+        should_plot = RequestParam('as_plot',
+                     name='Return data as a png plot',
+                     description='0 - api will return the raw data; 1 - api will return a png plot of the data',
+                     default=0,
+                     unit='',
+                     validators=[v.ValidatorInt(), v.ValidatorNumberRange(0, 1)])
+        # make sure this will be returned as a boolean
+        should_plot.setOutputFormatter(bool)
+        should_plot.addTo(rq)
+
         self.rq = rq
 
     def bind(self, userargs):
