@@ -3,11 +3,14 @@ import handler
 import tornado.ioloop
 import tornado.web
 import tornado.escape
-from request_manager_vpvs import RequestManagerVPVS
+from request_manager_vpvs import RequestManagerVPVS, RequestManagerVPVSStations
 import _mysql
 import json
 from ConfigParser import ConfigParser, NoSectionError
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 class MainHandler(handler.APIBaseHandler):
@@ -30,71 +33,139 @@ class MainHandler(handler.APIBaseHandler):
                                 self.config.get('db', 'pass'),
                                 self.config.get('db', 'db'))
 
-            query = '''
-                    select distinct
-                    ( 1 + ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) / (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) as vpvs_value,
-                           ( ( (pow(f.wei,2)*0.02 + pow(g.wei,2)*0.02) / ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) ) + ((pow(f.wei,2)*0.02)/(TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV}))) as vpvs_error,
-                    c.origintime as event_origin_time,
-                    h.lat as station_latitude,
-                    h.lon as station_longitude,
-                    h.elev as station_elevation,
-                    h.network as network_code,
-                    h.stacode as station_code,
-                    h.loco as station_location,
-                    f.pick as p_arrival_time,
-                    f.wei as p_quality,
-                    g.pick as s_arrival_time,
-                    g.wei s_quality,
-                    c.eqkID as event_id,
-                    c.id as event_loc_id,
-                    c.lat as event_latitude,
-                    c.lon as event_longitude,
-                    c.elev as event_elevation
-                    from
-                    (select c.eqkID as ID,count(*) as counterPS from phases f, phases g, eqlocations c, stations h where f.eqkID=g.eqkID and g.eqkID=c.eqkID and f.type='P' and g.type='S' and f.wei<={maxpw} and g.wei<={maxpw} and f.stacode=g.stacode and f.stacode=h.stacode and g.stacode=h.stacode and f.loco=h.loco and g.loco=h.loco and f.loco=g.loco and (h.lat between {minlat} and {maxlat}) and (h.lon between {minlon} and {maxlon}) and (h.elev between {mineqdep} and {maxeqdep}) and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkID) as tblPS,
+            if args['stacode'] == '0000':
+                query = '''
+                        select distinct
+                        ( 1 + ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) / (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) as vpvs_value,
+                            ( ( (pow(f.wei,2)*0.02 + pow(g.wei,2)*0.02) / ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) ) + ((pow(f.wei,2)*0.02)/(TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV}))) as vpvs_error,
+                        c.origintime as event_origin_time,
+                        h.lat as station_latitude,
+                        h.lon as station_longitude,
+                        h.elev as station_elevation,
+                        h.network as network_code,
+                        h.stacode as station_code,
+                        h.loco as station_location,
+                        f.pick as p_arrival_time,
+                        f.wei as p_quality,
+                        g.pick as s_arrival_time,
+                        g.wei s_quality,
+                        c.eqkID as event_id,
+                        c.id as event_loc_id,
+                        c.lat as event_latitude,
+                        c.lon as event_longitude,
+                        c.elev as event_elevation
+                        from
+                        (select c.eqkID as ID,count(*) as counterPS from phases f, phases g, eqlocations c, stations h where f.eqkID=g.eqkID and g.eqkID=c.eqkID and f.type='P' and g.type='S' and f.wei<={maxpw} and g.wei<={maxpw} and f.stacode=g.stacode and f.stacode=h.stacode and g.stacode=h.stacode and f.loco=h.loco and g.loco=h.loco and f.loco=g.loco and (h.lat between {minlat} and {maxlat}) and (h.lon between {minlon} and {maxlon}) and (h.elev between {mineqdep} and {maxeqdep}) and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkID) as tblPS,
 
-                    (select f.eqkID as ID,count(*) as counterP from phases f, eqlocations c where f.eqkID=c.eqkID and f.type='P' and f.wei<={maxpw} and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkID) as tblP,
-                    (select g.eqkID as ID,count(*) as counterS from phases g, eqlocations c where g.eqkID=c.eqkID and g.type='S' and g.wei<={maxsw} and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by g.eqkID) as tblS,
-                    eqlocations c, eqstatistics d, magnitudes e, phases f, phases g, stations h
-                    where
-                        tblPS.counterPS >= {minps}
-                    and tblP.counterP >= {minnp}
-                    and tblS.counterS >= {minns}
-                    and f.wei<= {maxvpvspw}
-                    and g.wei<= {maxvpvssw}
-                    and d.gap <= {maxgap}
-                    and d.mindist <= {midi}
-                    and (d.errh <= {maxherr} or sqrt(pow(d.errx,2)+pow(d.erry,2)) <= {maxherr})
-                    and d.errv <= {maxverr}
-                    and c.eqkID=tblPS.ID
-                    and c.eqkID=tblP.ID
-                    and c.eqkID=tblS.ID
-                    and c.model=1
-                    and c.lcode={codetype}
-                    and c.method={mettype}
-                    and (c.lat between {minlat} and {maxlat})
-                    and (c.lon between {minlon} and {maxlon})
-                    and (c.elev between {mineqdep} and {maxeqdep})
-                    and c.id=d.idloc
-                    and c.eqkID=e.eqkID
-                    and e.idloc=c.id
-                    and (c.origintime between '{mintime}' and '{maxtime}')
-                    and f.eqkID=g.eqkID
-                    and c.eqkID=f.eqkID
-                    and f.eqkID=g.eqkID
-                    and g.eqkID=c.eqkID
-                    and f.type='P'
-                    and g.type='S'
-                    and f.stacode=h.stacode
-                    and h.stacode=g.stacode
-                    and f.stacode=g.stacode
-                    and f.loco=h.loco
-                    and h.loco=g.loco
-                    and f.loco=g.loco
-                    having (vpvs_value > {vpvsmin}) and vpvs_error <= {maxvpvserr}
-                    order by c.origintime asc
-                    limit 1000000;
-                    '''.format(**args)
+                        (select f.eqkID as ID,count(*) as counterP from phases f, eqlocations c where f.eqkID=c.eqkID and f.type='P' and f.wei<={maxpw} and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkID) as tblP,
+                        (select g.eqkID as ID,count(*) as counterS from phases g, eqlocations c where g.eqkID=c.eqkID and g.type='S' and g.wei<={maxsw} and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by g.eqkID) as tblS,
+                        eqlocations c, eqstatistics d, magnitudes e, phases f, phases g, stations h
+                        where
+                            tblPS.counterPS >= {minps}
+                        and tblP.counterP >= {minnp}
+                        and tblS.counterS >= {minns}
+                        and f.wei<= {maxvpvspw}
+                        and g.wei<= {maxvpvssw}
+                        and d.gap <= {maxgap}
+                        and d.mindist <= {midi}
+                        and (d.errh <= {maxherr} or sqrt(pow(d.errx,2)+pow(d.erry,2)) <= {maxherr})
+                        and d.errv <= {maxverr}
+                        and c.eqkID=tblPS.ID
+                        and c.eqkID=tblP.ID
+                        and c.eqkID=tblS.ID
+                        and c.model=1
+                        and c.lcode={codetype}
+                        and c.method={mettype}
+                        and (c.lat between {minlat} and {maxlat})
+                        and (c.lon between {minlon} and {maxlon})
+                        and (c.elev between {mineqdep} and {maxeqdep})
+                        and c.id=d.idloc
+                        and c.eqkID=e.eqkID
+                        and e.idloc=c.id
+                        and (c.origintime between '{mintime}' and '{maxtime}')
+                        and f.eqkID=g.eqkID
+                        and c.eqkID=f.eqkID
+                        and f.eqkID=g.eqkID
+                        and g.eqkID=c.eqkID
+                        and f.type='P'
+                        and g.type='S'
+                        and f.stacode=h.stacode
+                        and h.stacode=g.stacode
+                        and f.stacode=g.stacode
+                        and f.loco=h.loco
+                        and h.loco=g.loco
+                        and f.loco=g.loco
+                        having (vpvs_value > {vpvsmin}) and vpvs_error <= {maxvpvserr}
+                        order by c.origintime asc
+                        limit 1000000;
+                        '''.format(**args)
+            else:
+                query = '''
+                        select distinct
+                        ( 1 + ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) / (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) as vpvs_value,
+                            ( ( (pow(f.wei,2)*0.02 + pow(g.wei,2)*0.02) / ((TIMESTAMPDIFF(microsecond,c.origintime,g.pick)/{DIV}) - (TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV})) ) + ((pow(f.wei,2)*0.02)/(TIMESTAMPDIFF(microsecond,c.origintime,f.pick)/{DIV}))) as vpvs_error,
+                        c.origintime as event_origin_time,
+                        h.lat as station_latitude,
+                        h.lon as station_longitude,
+                        h.elev as station_elevation,
+                        h.network as network_code,
+                        h.stacode as station_code,
+                        h.loco as station_location,
+                        f.pick as p_arrival_time,
+                        f.wei as p_quality,
+                        g.pick as s_arrival_time,
+                        g.wei s_quality,
+                        c.eqkID as event_id,
+                        c.id as event_loc_id,
+                        c.lat as event_latitude,
+                        c.lon as event_longitude,
+                        c.elev as event_elevation
+                        from
+                        (select c.eqkID as ID,count(*) as counterPS from phases f, phases g, eqlocations c, stations h where f.eqkID=g.eqkID and g.eqkID=c.eqkID and f.type='P' and g.type='S' and f.wei<={maxpw} and g.wei<={maxpw} and f.stacode=g.stacode and f.stacode=h.stacode and g.stacode=h.stacode and f.loco=h.loco and g.loco=h.loco and f.loco=g.loco and (h.lat between {minlat} and {maxlat}) and (h.lon between {minlon} and {maxlon}) and (h.elev between {mineqdep} and {maxeqdep}) and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkID) as tblPS,
+
+                        (select f.eqkID as ID,count(*) as counterP from phases f, eqlocations c where f.eqkID=c.eqkID and f.type='P' and f.wei<={maxpw} and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by f.eqkID) as tblP,
+                        (select g.eqkID as ID,count(*) as counterS from phases g, eqlocations c where g.eqkID=c.eqkID and g.type='S' and g.wei<={maxsw} and c.model={modtype} and c.lcode={codetype} and c.method={mettype} and (c.origintime between '{mintime}' and '{maxtime}') group by g.eqkID) as tblS,
+                        eqlocations c, eqstatistics d, magnitudes e, phases f, phases g, stations h
+                        where
+                            h.stacode='{stacode}'
+                        and tblPS.counterPS >= {minps}
+                        and tblP.counterP >= {minnp}
+                        and tblS.counterS >= {minns}
+                        and f.wei<= {maxvpvspw}
+                        and g.wei<= {maxvpvssw}
+                        and d.gap <= {maxgap}
+                        and d.mindist <= {midi}
+                        and (d.errh <= {maxherr} or sqrt(pow(d.errx,2)+pow(d.erry,2)) <= {maxherr})
+                        and d.errv <= {maxverr}
+                        and c.eqkID=tblPS.ID
+                        and c.eqkID=tblP.ID
+                        and c.eqkID=tblS.ID
+                        and c.model=1
+                        and c.lcode={codetype}
+                        and c.method={mettype}
+                        and (c.lat between {minlat} and {maxlat})
+                        and (c.lon between {minlon} and {maxlon})
+                        and (c.elev between {mineqdep} and {maxeqdep})
+                        and c.id=d.idloc
+                        and c.eqkID=e.eqkID
+                        and e.idloc=c.id
+                        and (c.origintime between '{mintime}' and '{maxtime}')
+                        and f.eqkID=g.eqkID
+                        and c.eqkID=f.eqkID
+                        and f.eqkID=g.eqkID
+                        and g.eqkID=c.eqkID
+                        and f.type='P'
+                        and g.type='S'
+                        and f.stacode=h.stacode
+                        and h.stacode=g.stacode
+                        and f.stacode=g.stacode
+                        and f.loco=h.loco
+                        and h.loco=g.loco
+                        and f.loco=g.loco
+                        having (vpvs_value > {vpvsmin}) and vpvs_error <= {maxvpvserr}
+                        order by c.origintime asc
+                        limit 1000000;
+                        '''.format(**args)
 
             # uncomment lines 75, 76 in order to echo the query to the screen and stop
             # self.send_success_response(query)
@@ -114,6 +185,109 @@ class MainHandler(handler.APIBaseHandler):
             errors = [e.message for e in user_request.global_errors]
             errors.extend(["{0}: {1}".format(param.varname, error.message)
                            for param, error in user_request.errors])
+            return self.send_error_response(errors)
+
+
+class StationMinMaxHandler(handler.APIBaseHandler):
+
+    def initialize(self, config):
+        self.config = config
+
+    def get(self):
+        manager = RequestManagerVPVSStations()
+        user_request = manager.bind(self).validate()
+        if user_request.is_valid:
+            args = user_request.getArgs()
+
+            db = _mysql.connect(self.config.get('db', 'host'),
+                                self.config.get('db', 'user'),
+                                self.config.get('db', 'pass'),
+                                self.config.get('db', 'db'))
+
+            query = 'select stacode as station_code, min(pick) as mintime, max(pick) as maxtime from phases GROUP BY stacode %s'
+            station_where = ''
+
+            if args['stacode'] != '0000':
+                station_where = "where stacode = '{stacode}'"
+
+            query = query % station_where
+            query = query.format(**args)
+            logging.info(query)
+
+            db.query(query)
+            rs = db.store_result()
+            self.write('''
+                      {
+                        "@context": {},
+                        "header": {},
+                        "result": [
+                       ''')
+            is_first = True
+            for row in rs.fetch_row(maxrows=0, how=1):
+                if is_first is True:
+                    is_first = False
+                else:
+                    self.write(',')
+                row['mintime'] = 'T'.join(row['mintime'].split(' '))
+                row['maxtime'] = 'T'.join(row['maxtime'].split(' '))
+                self.write(json.dumps(row))
+
+            self.write(']}')
+            self.set_header('Content-Type', 'application/json')
+
+        else:
+            errors = [e.message for e in user_request.global_errors] + [e.message for (p, e) in user_request.errors]
+            return self.send_error_response(errors)
+
+class StationHandler(handler.APIBaseHandler):
+
+    def initialize(self, config):
+        self.config = config
+
+    def get(self):
+        manager = RequestManagerVPVSStations()
+        user_request = manager.bind(self).validate()
+        if user_request.is_valid:
+            args = user_request.getArgs()
+
+            db = _mysql.connect(self.config.get('db', 'host'),
+                                self.config.get('db', 'user'),
+                                self.config.get('db', 'pass'),
+                                self.config.get('db', 'db'))
+
+            query = 'select DISTINCT(stacode) as station_code, birth as start_time, death as end_time, lat as station_latitude, lon as station_longitude, elev as station_elevation, place from stations s %s'
+            station_where = ''
+
+            if args['stacode'] != '0000':
+                station_where = "where stacode = '{stacode}'"
+
+            query = query % station_where
+            query = query.format(**args)
+            logging.info(query)
+
+            db.query(query)
+            rs = db.store_result()
+            self.write('''
+                      {
+                        "@context": {},
+                        "header": {},
+                        "result": [
+                       ''')
+            is_first = True
+            for row in rs.fetch_row(maxrows=0, how=1):
+                if is_first is True:
+                    is_first = False
+                else:
+                    self.write(',')
+                row['start_time'] = row['start_time'] + 'T00:00:00'
+                row['end_time'] = row['end_time'] + 'T00:00:00'
+                self.write(json.dumps(row))
+
+            self.write(']}')
+            self.set_header('Content-Type', 'application/json')
+
+        else:
+            errors = [e.message for e in user_request.global_errors] + [e.message for (p, e) in user_request.errors]
             return self.send_error_response(errors)
 
 
@@ -341,7 +515,9 @@ if __name__ == "__main__":
     application = tornado.web.Application([
         (r"/", IndexHandler),
         (r"/query", MainHandler, dict(config=cfg)),
-        (r"/dcat", DcatHandler, dict(config=cfg))
+        (r"/dcat", DcatHandler, dict(config=cfg)),
+        (r"/stationsminmax", StationMinMaxHandler, dict(config=cfg)),
+        (r"/stations", StationHandler, dict(config=cfg)),
     ], **settings)
     application.listen(cfg.get('service', 'port'))
     tornado.ioloop.IOLoop.current().start()

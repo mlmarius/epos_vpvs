@@ -241,9 +241,42 @@ class RequestManagerVPVS(object):
                      default=0,
                      unit='',
                      validators=[v.ValidatorInt(), v.ValidatorNumberRange(0, 1)])
+
+        RequestParam('stacode',
+                     default='0000',
+                     name='station code',
+                     description='it is the code representing the station',
+                     validators=[v.ValidatorRegex('^[A-Za-z0-9]+$')]).addTo(rq)
+
         # make sure this will be returned as a boolean
         should_plot.setOutputFormatter(bool)
         should_plot.addTo(rq)
+
+        self.rq = rq
+
+    def bind(self, userargs):
+        self.rq.bind(userargs)
+        return self
+
+    def validate(self):
+        self.rq.validate()
+        return self.rq
+
+
+class RequestManagerVPVSStations(object):
+
+    def __init__(self):
+
+        def dateFormatter(dtobj):
+            return dtobj.isoformat()
+
+        rq = Request()
+
+        RequestParam('stacode',
+                     default='0000',
+                     name='station code',
+                     description='it is the code representing the station',
+                     validators=[v.ValidatorRegex('^[A-Za-z0-9]+$')]).addTo(rq)
 
         self.rq = rq
 
